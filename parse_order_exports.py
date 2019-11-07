@@ -3,6 +3,7 @@ From the exported order file,
 create the spreadsheet needed for further processing.
 Also create the stickers for the meal bags.
 """
+import sys
 import csv
 from collections import defaultdict
 from docx import Document
@@ -75,7 +76,12 @@ def createStickers(customers, addresses, quantities, extra_text="Please Refriger
     customerAddressStickers = []
 
     for i in range(len(customers)):
-        while int(quantities[i]) > 0:
+        try:
+            total = int(quantities[i])
+        except ValueError:
+            total = 0
+
+        while int(total) > 0:
             customerNameStickers.append(customers[i])
             customerAddressStickers.append(addresses[i])
             quantities[i] = int(quantities[i]) - 5
@@ -91,9 +97,12 @@ def createStickers(customers, addresses, quantities, extra_text="Please Refriger
     j = 0
     for i in range(15):
         for j in range(4):
-            row_cells[j].text = chunks[j][i] + "\n" + addressDict[chunks[j][i]].split(',')[0] + "\n" + EXTRA_TEXT
-            row_cells[j].paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            row_cells[j].paragraphs[0].paragraph_format.line_spacing = 1
+            try:
+                row_cells[j].text = chunks[j][i] + "\n" + addressDict[chunks[j][i]].split(',')[0] + "\n" + EXTRA_TEXT
+                row_cells[j].paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                row_cells[j].paragraphs[0].paragraph_format.line_spacing = 1
+            except IndexError:
+                break
         row_cells = table.add_row().cells
 
         if ((i + 1) % 15 == 0):
@@ -146,7 +155,7 @@ def createWorkbook(weeklyOrders):
             try:
                 quantities.append(int(weeklyOrders[customer][i].split("*")[1].strip(" ")))
             except ValueError:
-                print("Error with the \'quality\' of: {}".format(weeklyOrders[customer][i].split("*")[1].strip(" ")))
+                pass
 
         totalMeals = sum(quantities)
         row = [0, customer_name, address, totalMeals]
@@ -186,9 +195,15 @@ def main():
 
     extraOrders = [x.strip() for x in extraOrders]
     
-    customerIDs, weeklyOrders = extractCustomerData("user_data/orders.csv")
+    # Use the default location of user_data/orders.csv unless a different location is set via. commandline.
+    # E.g. python parse_order_exports.py test/testOrders.csv
+    orderDataFile = "user_data/orders.csv"
+    if (len(sys.argv) > 1):
+        orderDataFile = str(sys.argv[1])
+
+    customerIDs, weeklyOrders = extractCustomerData(orderDataFile)
     createWorkbook(weeklyOrders)
     customerNames, customerAddresses, customerTotalMeals = generateLabels(customerIDs)
-    createStickers(customerNames, customerAddresses, customerTotalMeals)
+    #createStickers(customerNames, customerAddresses, customerTotalMeals)
 
 if __name__ == '__main__': main()
